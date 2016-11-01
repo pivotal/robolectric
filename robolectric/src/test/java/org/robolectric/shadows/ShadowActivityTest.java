@@ -522,6 +522,7 @@ public class ShadowActivityTest {
         "onCreate",
         "onStart",
         "onRestoreInstanceState",
+        "onPostCreate",
         "onResume"
     );
 
