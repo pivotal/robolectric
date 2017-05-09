@@ -136,10 +136,18 @@ public class ShadowResources {
 
   @Implementation
   public AssetFileDescriptor openRawResourceFd(int id) throws Resources.NotFoundException {
-    FileInputStream fis = (FileInputStream)openRawResource(id);
-    try {
-      return new AssetFileDescriptor(ParcelFileDescriptor.dup(fis.getFD()), 0, fis.getChannel().size());
-    } catch (IOException e) {
+    InputStream inputStream = openRawResource(id);
+    if (inputStream instanceof FileBufferedInputStream) {
+      FileBufferedInputStream fbis = (FileBufferedInputStream) inputStream;
+      FileInputStream fis = fbis.getFileInputStream();
+      try {
+        return new AssetFileDescriptor(ParcelFileDescriptor.dup(fis.getFD()), 0, fis.getChannel().size());
+      } catch (IOException e) {
+        throw newNotFoundException(id);
+      }
+    } else {
+      // likely because we're trying to open a file inside the system resources jar.
+      // todo: support opening files from jars
       throw newNotFoundException(id);
     }
   }
