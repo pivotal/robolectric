@@ -1,6 +1,7 @@
 package org.robolectric.android.controller;
 
 import android.app.Activity;
+import android.app.ActivityThread;
 import android.app.Application;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,22 +14,19 @@ import android.os.Bundle;
 import android.view.Display;
 import android.view.ViewRootImpl;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.Shadows;
 import org.robolectric.ShadowsAdapter;
-import org.robolectric.ShadowsAdapter.ShadowActivityAdapter;
-import org.robolectric.ShadowsAdapter.ShadowApplicationAdapter;
-import org.robolectric.android.runtime.RuntimeAdapter;
-import org.robolectric.android.runtime.RuntimeAdapterFactory;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.manifest.AndroidManifest;
+import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowViewRootImpl;
 import org.robolectric.util.ReflectionHelpers;
 
 import static android.os.Build.VERSION_CODES.M;
+import static org.robolectric.Shadows.shadowOf;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
 
 public class ActivityController<T extends Activity> extends org.robolectric.util.ActivityController<T> {
   private final ShadowsAdapter shadowsAdapter;
-  private ShadowActivityAdapter shadowReference;
 
   public static <T extends Activity> ActivityController<T> of(ShadowsAdapter shadowsAdapter, T activity, Intent intent) {
     return new ActivityController<>(shadowsAdapter, activity, intent).attach();
@@ -41,7 +39,6 @@ public class ActivityController<T extends Activity> extends org.robolectric.util
   private ActivityController(ShadowsAdapter shadowsAdapter, T activity, Intent intent) {
     super(shadowsAdapter, activity, intent);
     this.shadowsAdapter = shadowsAdapter;
-    shadowReference = shadowsAdapter.getShadowActivityAdapter(this.component);
   }
 
   /**
@@ -75,13 +72,10 @@ public class ActivityController<T extends Activity> extends org.robolectric.util
     final String title = getActivityTitle();
     final ClassLoader cl = baseContext.getClassLoader();
     final ActivityInfo info = getActivityInfo(RuntimeEnvironment.application);
-    final Class<?> threadClass = getActivityThreadClass(cl);
     final Class<?> nonConfigurationClass = getNonConfigurationClass(cl);
 
-    final RuntimeAdapter runtimeAdapter = RuntimeAdapterFactory.getInstance();
-    runtimeAdapter.callActivityAttach(component, baseContext, threadClass, RuntimeEnvironment.application, getIntent(), info, title, nonConfigurationClass);
-
-    shadowReference.setThemeFromManifest();
+    shadowOf(component).callActivityAttach(baseContext, ActivityThread.class, RuntimeEnvironment.application, getIntent(), info, title, nonConfigurationClass);
+    shadowOf(component).setThemeFromManifest();
     attached = true;
     return this;
   }
@@ -90,14 +84,6 @@ public class ActivityController<T extends Activity> extends org.robolectric.util
     try {
       return application.getPackageManager().getActivityInfo(new ComponentName(application.getPackageName(), component.getClass().getName()), PackageManager.GET_ACTIVITIES | PackageManager.GET_META_DATA);
     } catch (PackageManager.NameNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private Class<?> getActivityThreadClass(ClassLoader cl) {
-    try {
-      return cl.loadClass(shadowsAdapter.getShadowActivityThreadClassName());
-    } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
   }
@@ -114,8 +100,7 @@ public class ActivityController<T extends Activity> extends org.robolectric.util
     String title = null;
 
     /* Get the label for the activity from the manifest */
-    ShadowApplicationAdapter shadowApplicationAdapter = shadowsAdapter.getApplicationAdapter(component);
-    AndroidManifest appManifest = shadowApplicationAdapter.getAppManifest();
+    AndroidManifest appManifest = ShadowApplication.getInstance().getAppManifest();
     if (appManifest == null) return null;
     String labelRef = appManifest.getActivityLabel(component.getClass().getName());
 
@@ -204,9 +189,8 @@ public class ActivityController<T extends Activity> extends org.robolectric.util
       Rect frame = new Rect();
       display.getRectSize(frame);
       Rect insets = new Rect(0, 0, 0, 0);
-      final RuntimeAdapter runtimeAdapter = RuntimeAdapterFactory.getInstance();
-      runtimeAdapter.callViewRootImplDispatchResized(
-          root, frame, insets, insets, insets, insets, insets, true, null);
+      ShadowViewRootImpl shadow = Shadow.extract(root);
+      shadow.callViewRootImplDispatchResized(frame, insets, insets, insets, insets, insets, true, null);
     }
 
     return this;
@@ -309,11 +293,10 @@ public class ActivityController<T extends Activity> extends org.robolectric.util
           // Setup controller for the new activity
           attached = false;
           component = recreatedActivity;
-          shadowReference = shadowsAdapter.getShadowActivityAdapter(component);
           attach();
           
           // Set saved non config instance
-          Shadows.shadowOf(recreatedActivity).setLastNonConfigurationInstance(nonConfigInstance);
+          shadowOf(recreatedActivity).setLastNonConfigurationInstance(nonConfigInstance);
           
             // Create lifecycle
           ReflectionHelpers.callInstanceMethod(Activity.class, recreatedActivity,
