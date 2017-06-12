@@ -246,7 +246,7 @@ public class SandboxTestRunner extends BlockJUnit4ClassRunner {
   protected void finallyAfterTest(FrameworkMethod method) {
   }
 
-  protected HelperTestRunner getHelperTestRunner(Class bootstrappedTestClass) {
+  protected HelperTestRunner getHelperTestRunner(Class bootstrappedTestClass) throws InitializationError {
     try {
       return new HelperTestRunner(bootstrappedTestClass);
     } catch (InitializationError initializationError) {

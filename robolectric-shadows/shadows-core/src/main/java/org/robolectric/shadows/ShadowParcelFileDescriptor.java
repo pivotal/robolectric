@@ -1,54 +1,51 @@
 package org.robolectric.shadows;
 
 import android.os.ParcelFileDescriptor;
-import org.robolectric.Shadows;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.annotation.RealObject;
+import org.robolectric.util.ReflectionHelpers;
 
-import java.io.File;
 import java.io.FileDescriptor;
-import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.lang.reflect.Constructor;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Implements(ParcelFileDescriptor.class)
 public class ShadowParcelFileDescriptor {
-  private RandomAccessFile file;
+  @RealObject
+  ParcelFileDescriptor realObject;
+
+  private static final BiMap<Integer, FileDescriptor> fds = HashBiMap.create();
+  private static final AtomicInteger nextFd = new AtomicInteger(10);
 
   @Implementation
-  public static ParcelFileDescriptor open(File file, int mode) throws FileNotFoundException {
-    ParcelFileDescriptor pfd;
-    try {
-      Constructor<ParcelFileDescriptor> constructor = ParcelFileDescriptor.class.getDeclaredConstructor(FileDescriptor.class);
-      pfd = constructor.newInstance(new FileDescriptor());
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-    Shadows.shadowOf(pfd).file = new RandomAccessFile(file, mode == ParcelFileDescriptor.MODE_READ_ONLY ? "r" : "rw");
-    return pfd;
+  public static ParcelFileDescriptor adoptFd(int fd) {
+    return new ParcelFileDescriptor(fds.get(fd));
   }
 
   @Implementation
-  public FileDescriptor getFileDescriptor() {
-    try {
-      return file.getFD();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  public void closeWithStatus(int status, String msg) {
+    FileDescriptor fd = realObject.getFileDescriptor();
+    fds.inverse().remove(fd);
   }
 
   @Implementation
   public long getStatSize() {
-    try {
-      return file.length();
+    try (FileInputStream in = new FileInputStream(realObject.getFileDescriptor())) {
+      return in.getChannel().size();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  @Implementation
-  public void close() throws IOException {
-    file.close();
+  public static int fd(FileDescriptor fd) {
+    int fdNum = nextFd.getAndIncrement();
+    fds.put(fdNum, fd);
+    return fdNum;
   }
 }
