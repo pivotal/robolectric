@@ -56,6 +56,12 @@ public class ShadowBitmapTest {
   }
 
   @Test
+  public void extractAlpha() {
+    Bitmap bitmap = Bitmap.createBitmap(100, 200, Bitmap.Config.ARGB_8888);
+    assertThat(bitmap.extractAlpha()).isNotNull();
+  }
+
+  @Test
   @Config(minSdk = JELLY_BEAN_MR1)
   public void hasMipmap() {
     Bitmap bitmap = Bitmap.createBitmap(100, 200, Bitmap.Config.ARGB_8888);
