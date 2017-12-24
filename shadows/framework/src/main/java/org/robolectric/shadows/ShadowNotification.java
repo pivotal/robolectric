@@ -32,10 +32,31 @@ public class ShadowNotification {
         : findText(applyContentView(), "title");
   }
 
+  /**
+   * @deprecated use @{link #getCombinedContentText()} instead for better subText support.
+   */
+  @Deprecated
   public CharSequence getContentText() {
-    return RuntimeEnvironment.getApiLevel() >= Build.VERSION_CODES.N
+    return getApiLevel() >= N
         ? realNotification.extras.getString(Notification.EXTRA_TEXT)
         : findText(applyContentView(), "text");
+  }
+
+  public CharSequence getCombinedContentText() {
+    CharSequence text = getApiLevel() >= N
+        ? realNotification.extras.getString(Notification.EXTRA_TEXT)
+        : findText(applyContentView(), "text");
+    CharSequence text2 = getApiLevel() >= N
+        ? realNotification.extras.getString(Notification.EXTRA_SUB_TEXT)
+        : findText(applyContentView(), "text2");
+
+    if (text2 == null || text2.length() == 0) {
+      return text;
+    } else if (text == null || text.length() == 0) {
+      return text2;
+    } else {
+      return new StringBuilder().append(text).append(" ").append(text2).toString();
+    }
   }
 
   public CharSequence getContentInfo() {
