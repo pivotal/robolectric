@@ -106,6 +106,9 @@ public class ShadowAudioManagerTest {
       switch(stream) {
         case AudioManager.STREAM_MUSIC:
         case AudioManager.STREAM_DTMF:
+
+        case AudioManager.STREAM_ACCESSIBILITY:
+          assertThat(shadowAudioManager.getStreamMaxVolume(stream)).isEqualTo(ShadowAudioManager.MAX_VOLUME_MUSIC_DTMF_ACCESSIBILITY);
           assertThat(audioManager.getStreamMaxVolume(stream))
               .isEqualTo(ShadowAudioManager.MAX_VOLUME_MUSIC_DTMF);
           break;
@@ -181,6 +184,8 @@ public class ShadowAudioManagerTest {
       switch(stream) {
         case AudioManager.STREAM_MUSIC:
         case AudioManager.STREAM_DTMF:
+        case AudioManager.STREAM_ACCESSIBILITY:
+          assertThat(shadowAudioManager.getStreamMaxVolume(stream)).isEqualTo(ShadowAudioManager.MAX_VOLUME_MUSIC_DTMF_ACCESSIBILITY);
           assertThat(audioManager.getStreamMaxVolume(stream))
               .isEqualTo(ShadowAudioManager.MAX_VOLUME_MUSIC_DTMF);
           break;
