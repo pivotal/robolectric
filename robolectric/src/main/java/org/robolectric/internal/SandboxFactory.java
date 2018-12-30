@@ -43,16 +43,16 @@ public class SandboxFactory {
       URL[] urls = dependencyResolver.getLocalArtifactUrls(sdkConfig.getAndroidSdkDependency());
 
       ClassLoader robolectricClassLoader = createClassLoader(instrumentationConfig, urls);
-      sdkEnvironment = createSdkEnvironment(sdkConfig, robolectricClassLoader);
+      sdkEnvironment = createSdkEnvironment(sdkConfig, useLegacyResources, robolectricClassLoader);
 
       sdkToEnvironment.put(key, sdkEnvironment);
     }
     return sdkEnvironment;
   }
 
-  protected SdkEnvironment createSdkEnvironment(
-      SdkConfig sdkConfig, ClassLoader robolectricClassLoader) {
-    return new SdkEnvironment(sdkConfig, robolectricClassLoader);
+  protected SdkEnvironment createSdkEnvironment(SdkConfig sdkConfig, boolean useLegacyResources,
+      ClassLoader robolectricClassLoader) {
+    return new SdkEnvironment(sdkConfig, useLegacyResources, robolectricClassLoader);
   }
 
   @Nonnull
