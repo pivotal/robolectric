@@ -26,17 +26,17 @@ import org.robolectric.res.ResourceTableFactory;
 public class ApkLoader {
 
   private final DependencyResolver dependencyResolver;
+  private final SdkProvider sdkProvider;
 
   private final Map<AndroidManifest, PackageResourceTable> appResourceTableCache = new HashMap<>();
 
   private PackageResourceTable compiletimeSdkResourceTable;
   private PackageResourceTable systemResourceTable;
 
-  private final DependencyResolver dependencyResolver;
-
   @Inject
-  public ApkLoader(DependencyResolver dependencyResolver) {
+  public ApkLoader(DependencyResolver dependencyResolver, SdkProvider sdkProvider) {
     this.dependencyResolver = dependencyResolver;
+    this.sdkProvider = sdkProvider;
   }
 
   public PackageResourceTable getSystemResourceTable(AndroidSandbox androidSandbox) {
@@ -95,7 +95,7 @@ public class ApkLoader {
   }
 
   public synchronized Path getCompileTimeSystemResourcesFile() {
-    return getRuntimeSystemResourcesFile(new SdkConfig(SdkConfig.MAX_SDK_VERSION));
+    return getRuntimeSystemResourcesFile(sdkProvider.getMaxSdkConfig());
   }
 
   public Path getRuntimeSystemResourcesFile(SdkConfig sdkConfig) {

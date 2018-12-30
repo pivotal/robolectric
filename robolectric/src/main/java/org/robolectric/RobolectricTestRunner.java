@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.ServiceLoader;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import org.junit.Ignore;
@@ -59,9 +58,6 @@ public class RobolectricTestRunner extends SandboxTestRunner<AndroidSandbox> {
 
   private static final Map<ManifestIdentifier, AndroidManifest> appManifestsCache = new HashMap<>();
 
-  private final SdkPicker sdkPicker;
-  private final ConfigMerger configMerger;
-  private final DependencyResolver dependencyResolver;
   private final ResourcesMode resourcesMode = getResourcesMode();
   private boolean alwaysIncludeVariantMarkersInName =
       Boolean.parseBoolean(
@@ -582,11 +578,13 @@ public class RobolectricTestRunner extends SandboxTestRunner<AndroidSandbox> {
       includeVariantMarkersInTestName = false;
     }
 
+    @Override
     @Nonnull
     public Config getConfig() {
       return config;
     }
 
+    @Override
     @Nonnull
     public AndroidManifest getAppManifest() {
       return appManifest;

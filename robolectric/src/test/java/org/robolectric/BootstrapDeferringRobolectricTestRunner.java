@@ -4,11 +4,11 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
 import javax.annotation.Nonnull;
+import javax.inject.Inject;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.robolectric.annotation.Config;
@@ -18,6 +18,7 @@ import org.robolectric.internal.SandboxFactory;
 import org.robolectric.internal.SdkConfig;
 import org.robolectric.internal.bytecode.InstrumentationConfiguration;
 import org.robolectric.internal.bytecode.InstrumentationConfiguration.Builder;
+import org.robolectric.internal.dependency.DependencyResolver;
 import org.robolectric.manifest.AndroidManifest;
 
 /**
@@ -25,27 +26,17 @@ import org.robolectric.manifest.AndroidManifest;
  */
 public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunner {
 
-  private static SoftReference<SandboxFactory> SANDBOX_FACTORY = new SoftReference<>(null);
   private static BootstrapWrapper bootstrapWrapper;
 
   public BootstrapDeferringRobolectricTestRunner(Class<?> testClass) throws InitializationError {
-    super(testClass);
+    super(testClass, defaultInjector()
+        .register(SandboxFactory.class, MySandboxFactory.class));
   }
 
   @Nonnull
   @Override
   protected Class<? extends TestLifecycle> getTestLifecycleClass() {
     return MyTestLifecycle.class;
-  }
-
-  @Override
-  protected SandboxFactory getSandboxFactory() {
-    SandboxFactory sandboxFactory = SANDBOX_FACTORY.get();
-    if (sandboxFactory == null) {
-      sandboxFactory = new MySandboxFactory();
-      SANDBOX_FACTORY = new SoftReference<>(sandboxFactory);
-    }
-    return sandboxFactory;
   }
 
   @Nonnull
@@ -126,6 +117,11 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
   }
 
   private static class MySandboxFactory extends SandboxFactory {
+
+    @Inject
+    public MySandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider, ApkLoader apkLoader) {
+      super(dependencyResolver, sdkProvider, apkLoader);
+    }
 
     @Override
     protected AndroidSandbox createSandbox(SdkConfig sdkConfig, boolean useLegacyResources,

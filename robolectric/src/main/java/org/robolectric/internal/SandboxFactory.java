@@ -20,15 +20,16 @@ public class SandboxFactory {
   private static final int CACHE_SIZE_FACTOR = 3;
 
   private final DependencyResolver dependencyResolver;
-  private final org.robolectric.SdkProvider sdkProvider;
+  private final ApkLoader apkLoader;
 
   // Simple LRU Cache. Sandboxes are unique across InstrumentationConfiguration and SdkConfig.
   private final LinkedHashMap<SandboxKey, AndroidSandbox> sdkToEnvironment;
 
   @Inject
-  public SandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider) {
+  public SandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider,
+      ApkLoader apkLoader) {
     this.dependencyResolver = dependencyResolver;
-    this.sdkProvider = sdkProvider;
+    this.apkLoader = apkLoader;
 
     // We need to set the cache size of class loaders more than the number of supported APIs as
     // different tests may have different configurations.
@@ -52,7 +53,8 @@ public class SandboxFactory {
       URL[] urls = dependencyResolver.getLocalArtifactUrls(sdkConfig.getAndroidSdkDependency());
 
       ClassLoader robolectricClassLoader = createClassLoader(instrumentationConfig, urls);
-      androidSandbox = createSandbox(sdkConfig, useLegacyResources, robolectricClassLoader, apkLoader);
+      androidSandbox = createSandbox(sdkConfig, useLegacyResources, robolectricClassLoader,
+          apkLoader);
 
       sdkToEnvironment.put(key, androidSandbox);
     }
