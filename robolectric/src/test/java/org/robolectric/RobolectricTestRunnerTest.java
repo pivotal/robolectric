@@ -41,6 +41,7 @@ import org.robolectric.RobolectricTestRunnerTest.TestWithBrokenAppCreate.MyTestA
 import org.robolectric.annotation.Config;
 import org.robolectric.internal.AndroidSandbox;
 import org.robolectric.internal.Bridge;
+import org.robolectric.internal.DefaultSandboxFactory;
 import org.robolectric.internal.DefaultSdkProvider;
 import org.robolectric.internal.SandboxFactory;
 import org.robolectric.internal.SdkConfig;
@@ -325,7 +326,7 @@ public class RobolectricTestRunnerTest {
     }
   }
 
-  private static class MySandboxFactory extends SandboxFactory {
+  private static class MySandboxFactory extends DefaultSandboxFactory {
     public MySandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider, ApkLoader apkLoader) {
       super(dependencyResolver, sdkProvider, apkLoader);
     }

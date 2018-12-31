@@ -14,6 +14,7 @@ import org.junit.runners.model.InitializationError;
 import org.robolectric.annotation.Config;
 import org.robolectric.internal.AndroidSandbox;
 import org.robolectric.internal.Bridge;
+import org.robolectric.internal.DefaultSandboxFactory;
 import org.robolectric.internal.SandboxFactory;
 import org.robolectric.internal.SdkConfig;
 import org.robolectric.internal.bytecode.InstrumentationConfiguration;
@@ -116,7 +117,7 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
     }
   }
 
-  private static class MySandboxFactory extends SandboxFactory {
+  private static class MySandboxFactory extends DefaultSandboxFactory {
 
     @Inject
     public MySandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider, ApkLoader apkLoader) {

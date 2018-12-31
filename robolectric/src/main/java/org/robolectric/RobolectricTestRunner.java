@@ -73,7 +73,6 @@ public class RobolectricTestRunner extends SandboxTestRunner<AndroidSandbox> {
     return new Injector()
         .register(Properties.class, System.getProperties())
         .registerDefault(ApkLoader.class, ApkLoader.class)
-        .registerDefault(SandboxFactory.class, SandboxFactory.class)
         .registerDefault(Ctx.class, Ctx.class);
   }
 
