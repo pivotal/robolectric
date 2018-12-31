@@ -90,9 +90,9 @@ public class RobolectricTestRunner extends SandboxTestRunner<AndroidSandbox> {
       throws InitializationError {
     super(testClass);
 
-    this.sandboxFactory = injector.getInstance(SandboxFactory.class);
-    this.sdkPicker = injector.getInstance(SdkPicker.class);
-    this.configMerger = injector.getInstance(ConfigMerger.class);
+    this.sandboxFactory = injector.get(SandboxFactory.class);
+    this.sdkPicker = injector.get(SdkPicker.class);
+    this.configMerger = injector.get(ConfigMerger.class);
 
   }
 
