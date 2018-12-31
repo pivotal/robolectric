@@ -22,6 +22,7 @@ import org.robolectric.android.AndroidInterceptors;
 import org.robolectric.annotation.Config;
 import org.robolectric.internal.AndroidConfigurer;
 import org.robolectric.internal.AndroidSandbox;
+import org.robolectric.internal.AndroidSandbox.SandboxConfig;
 import org.robolectric.internal.BuckManifestFactory;
 import org.robolectric.internal.DefaultManifestFactory;
 import org.robolectric.internal.ManifestFactory;
@@ -71,9 +72,10 @@ public class RobolectricTestRunner extends SandboxTestRunner<AndroidSandbox> {
   }
 
   protected static Injector defaultInjector() {
-    return new Injector()
+    Injector injector = new Injector()
         .register(Properties.class, System.getProperties())
         .registerDefault(ApkLoader.class, ApkLoader.class);
+    return injector.register(Injector.class, injector);
   }
 
   /**

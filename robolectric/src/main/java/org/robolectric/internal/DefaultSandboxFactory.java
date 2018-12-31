@@ -11,9 +11,11 @@ import javax.annotation.Priority;
 import javax.inject.Inject;
 import org.robolectric.ApkLoader;
 import org.robolectric.SdkProvider;
+import org.robolectric.internal.AndroidSandbox.SandboxConfig;
 import org.robolectric.internal.bytecode.InstrumentationConfiguration;
 import org.robolectric.internal.bytecode.SandboxClassLoader;
 import org.robolectric.internal.dependency.DependencyResolver;
+import org.robolectric.util.inject.Injector;
 
 @AutoService(SandboxFactory.class)
 @Priority(Integer.MIN_VALUE)
@@ -23,6 +25,7 @@ public class DefaultSandboxFactory implements SandboxFactory {
   /** The factor for cache size. See {@link #sdkToEnvironment} for details. */
   private static final int CACHE_SIZE_FACTOR = 3;
 
+  private final Injector injector;
   private final DependencyResolver dependencyResolver;
   private final ApkLoader apkLoader;
 
@@ -30,8 +33,9 @@ public class DefaultSandboxFactory implements SandboxFactory {
   private final LinkedHashMap<SandboxKey, AndroidSandbox> sdkToEnvironment;
 
   @Inject
-  public DefaultSandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider,
-                               ApkLoader apkLoader) {
+  public DefaultSandboxFactory(Injector injector, DependencyResolver dependencyResolver,
+      SdkProvider sdkProvider, ApkLoader apkLoader) {
+    this.injector = injector;
     this.dependencyResolver = dependencyResolver;
     this.apkLoader = apkLoader;
 
@@ -39,13 +43,13 @@ public class DefaultSandboxFactory implements SandboxFactory {
     // different tests may have different configurations.
     final int cacheSize = sdkProvider.getSupportedSdkConfigs().size() * CACHE_SIZE_FACTOR;
     sdkToEnvironment =
-      new LinkedHashMap<SandboxKey, AndroidSandbox>() {
-      @Override
-      protected boolean removeEldestEntry(Map.Entry<SandboxKey, AndroidSandbox> eldest) {
-        return size() > cacheSize;
-      }
+        new LinkedHashMap<SandboxKey, AndroidSandbox>() {
+          @Override
+          protected boolean removeEldestEntry(Map.Entry<SandboxKey, AndroidSandbox> eldest) {
+            return size() > cacheSize;
+          }
         };
-      }
+  }
 
   @Override
   public synchronized AndroidSandbox getSandbox(
@@ -68,7 +72,11 @@ public class DefaultSandboxFactory implements SandboxFactory {
 
   protected AndroidSandbox createSandbox(SdkConfig sdkConfig, boolean useLegacyResources,
       ClassLoader robolectricClassLoader, ApkLoader apkLoader) {
-    return new AndroidSandbox(sdkConfig, useLegacyResources, robolectricClassLoader, apkLoader);
+    Injector sandboxScopedInjector = new Injector(this.injector)
+        .register(SandboxConfig.class,
+            new SandboxConfig(sdkConfig, useLegacyResources, robolectricClassLoader));
+
+    return sandboxScopedInjector.get(AndroidSandbox.class);
   }
 
   @Nonnull

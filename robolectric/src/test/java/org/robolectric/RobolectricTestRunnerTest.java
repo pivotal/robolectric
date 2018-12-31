@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import javax.annotation.Nonnull;
+import javax.inject.Inject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
@@ -107,7 +108,7 @@ public class RobolectricTestRunnerTest {
   @Test
   public void failureInResetterDoesntBreakAllTests() throws Exception {
     Injector injector = SingleSdkRobolectricTestRunner.defaultInjector()
-        .register(SandboxFactory.class, MySandboxFactory.class);
+        .register(AndroidSandbox.class, MyAndroidSandbox.class);
 
     RobolectricTestRunner runner =
         new SingleSdkRobolectricTestRunner(TestWithTwoMethods.class, injector);
@@ -326,25 +327,20 @@ public class RobolectricTestRunnerTest {
     }
   }
 
-  private static class MySandboxFactory extends DefaultSandboxFactory {
-    public MySandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider, ApkLoader apkLoader) {
-      super(dependencyResolver, sdkProvider, apkLoader);
+  private static class MyAndroidSandbox extends AndroidSandbox {
+
+    @Inject
+    public MyAndroidSandbox(SdkConfig sdkConfig, boolean useLegacyResources,
+        ClassLoader robolectricClassLoader, ApkLoader apkLoader) {
+      super(sdkConfig, useLegacyResources, robolectricClassLoader, apkLoader);
     }
 
     @Override
-    protected AndroidSandbox createSandbox(SdkConfig sdkConfig,
-                                           boolean useLegacyResources, ClassLoader robolectricClassLoader,
-                                           ApkLoader apkLoader) {
-      return new AndroidSandbox(sdkConfig, useLegacyResources, robolectricClassLoader,
-          apkLoader) {
-        @Override
-        protected Bridge getBridge() {
-          Bridge mockBridge = mock(Bridge.class);
-          doThrow(new RuntimeException("fake error in setUpApplicationState"))
-              .when(mockBridge).setUpApplicationState(any(), any(), any(), any());
-          return mockBridge;
-        }
-      };
+    protected Bridge getBridge() {
+      Bridge mockBridge = mock(Bridge.class);
+      doThrow(new RuntimeException("fake error in setUpApplicationState"))
+          .when(mockBridge).setUpApplicationState(any(), any(), any(), any());
+      return mockBridge;
     }
   }
 }

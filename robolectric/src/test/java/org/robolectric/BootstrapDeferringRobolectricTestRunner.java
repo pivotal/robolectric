@@ -19,6 +19,7 @@ import org.robolectric.internal.SandboxFactory;
 import org.robolectric.internal.SdkConfig;
 import org.robolectric.internal.bytecode.InstrumentationConfiguration;
 import org.robolectric.internal.bytecode.InstrumentationConfiguration.Builder;
+import org.robolectric.internal.bytecode.Sandbox;
 import org.robolectric.internal.dependency.DependencyResolver;
 import org.robolectric.manifest.AndroidManifest;
 
@@ -31,7 +32,7 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
 
   public BootstrapDeferringRobolectricTestRunner(Class<?> testClass) throws InitializationError {
     super(testClass, defaultInjector()
-        .register(SandboxFactory.class, MySandboxFactory.class));
+        .register(Sandbox.class, MyAndroidSandbox.class));
   }
 
   @Nonnull
@@ -121,20 +122,6 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
     @Override
     public Object getCurrentApplication() {
       return delegate.getCurrentApplication();
-    }
-  }
-
-  public static class MySandboxFactory extends DefaultSandboxFactory {
-
-    @Inject
-    public MySandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider, ApkLoader apkLoader) {
-      super(dependencyResolver, sdkProvider, apkLoader);
-    }
-
-    @Override
-    protected AndroidSandbox createSandbox(SdkConfig sdkConfig, boolean useLegacyResources,
-        ClassLoader robolectricClassLoader, ApkLoader apkLoader) {
-      return new MyAndroidSandbox(sdkConfig, useLegacyResources, robolectricClassLoader, apkLoader);
     }
   }
 

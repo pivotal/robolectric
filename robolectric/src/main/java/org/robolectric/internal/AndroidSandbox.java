@@ -1,5 +1,6 @@
 package org.robolectric.internal;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.Lists;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -9,6 +10,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import javax.annotation.Priority;
+import javax.inject.Inject;
 import org.robolectric.ApkLoader;
 import org.robolectric.android.internal.AndroidBridge.BridgeFactory;
 import org.robolectric.android.internal.AndroidBridge.TheFactory;
@@ -16,6 +19,8 @@ import org.robolectric.annotation.Config;
 import org.robolectric.internal.bytecode.Sandbox;
 import org.robolectric.manifest.AndroidManifest;
 
+@AutoService(AndroidSandbox.class)
+@Priority(Integer.MIN_VALUE)
 @SuppressWarnings("NewApi")
 public class AndroidSandbox extends Sandbox {
 
@@ -25,7 +30,8 @@ public class AndroidSandbox extends Sandbox {
   private final Bridge bridge;
   private final List<ShadowProvider> shadowProviders;
 
-  protected AndroidSandbox(SdkConfig sdkConfig, boolean useLegacyResources,
+  @Inject
+  public AndroidSandbox(SdkConfig sdkConfig, boolean useLegacyResources,
       ClassLoader robolectricClassLoader, ApkLoader apkLoader) {
     super(robolectricClassLoader);
 
@@ -99,6 +105,20 @@ public class AndroidSandbox extends Sandbox {
         shadowProvider.reset();
       }
     });
+  }
+
+  public static class SandboxConfig {
+
+    public final SdkConfig sdkConfig;
+    public final boolean isLegacyResourcesMode;
+    public final ClassLoader classLoader;
+
+    public SandboxConfig(SdkConfig sdkConfig, boolean isLegacyResourcesMode,
+        ClassLoader classLoader) {
+      this.sdkConfig = sdkConfig;
+      this.isLegacyResourcesMode = isLegacyResourcesMode;
+      this.classLoader = classLoader;
+    }
   }
 
   public interface MethodConfig {
