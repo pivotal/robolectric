@@ -57,12 +57,19 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
 
   }
 
-  public static class MyTestLifecycle extends DefaultTestLifecycle {
+  public static class MyTestLifecycle implements TestLifecycle {
+
+    @Override
+    public void beforeTest(Method method) {
+    }
 
     @Override
     public void prepareTest(Object test) {
-      super.prepareTest(test);
       inject(test, BootstrapWrapper.class, bootstrapWrapper);
+    }
+
+    @Override
+    public void afterTest(Method method) {
     }
 
     private <T> void inject(Object instance, Class<T> clazz, T value) {
@@ -117,7 +124,7 @@ public class BootstrapDeferringRobolectricTestRunner extends RobolectricTestRunn
     }
   }
 
-  private static class MySandboxFactory extends DefaultSandboxFactory {
+  public static class MySandboxFactory extends DefaultSandboxFactory {
 
     @Inject
     public MySandboxFactory(DependencyResolver dependencyResolver, SdkProvider sdkProvider, ApkLoader apkLoader) {
