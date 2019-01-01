@@ -250,7 +250,7 @@ public class RobolectricTestRunner extends SandboxTestRunner<AndroidSandbox> {
   protected AndroidSandbox getSandbox(FrameworkMethod method) {
     RobolectricFrameworkMethod roboMethod = (RobolectricFrameworkMethod) method;
     SdkConfig sdkConfig = roboMethod.sdkConfig;
-    return sandboxFactory.getSdkEnvironment(
+    return sandboxFactory.getSandbox(
         createClassLoaderConfig(method), sdkConfig, roboMethod.isLegacy());
   }
 
