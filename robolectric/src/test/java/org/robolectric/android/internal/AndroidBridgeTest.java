@@ -19,6 +19,7 @@ import java.security.cert.CertificateFactory;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,14 +40,22 @@ import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowLooper;
 
 @RunWith(BootstrapDeferringRobolectricTestRunner.class)
-public class ParallelUniverseTest {
+public class AndroidBridgeTest {
 
   @RoboInject BootstrapWrapper bootstrapWrapper;
-  private ParallelUniverse pu;
+  private AndroidBridge pu;
 
   @Before
   public void setUp() throws InitializationError {
-    pu = (ParallelUniverse) bootstrapWrapper.hooksInterface;
+    pu = (AndroidBridge) bootstrapWrapper.delegate;
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    // reset from weird states created by tests...
+    if (!RuntimeEnvironment.isMainThread()) {
+      RuntimeEnvironment.setMainThread(Thread.currentThread());
+    }
   }
 
   @Test
@@ -175,7 +184,7 @@ public class ParallelUniverseTest {
   @Test
   public void testResourceNotFound() {
     // not relevant for binary resources mode
-    assumeTrue(bootstrapWrapper.legacyResources);
+    assumeTrue(pu.isLegacyResourceMode());
 
     try {
       bootstrapWrapper.appManifest = new ThrowingManifest(bootstrapWrapper.appManifest);

@@ -10,11 +10,17 @@ import android.util.DisplayMetrics;
 import java.nio.file.Path;
 import org.robolectric.android.Bootstrap;
 import org.robolectric.android.ConfigurationV25;
+import org.robolectric.android.internal.AndroidDevice;
 import org.robolectric.res.ResourceTable;
 import org.robolectric.util.Scheduler;
 import org.robolectric.util.TempDirectory;
 
 public class RuntimeEnvironment {
+
+  private static final AndroidDevice androidDevice = AndroidDevice.get();
+  private static final int apiLevel = androidDevice.apiLevel;
+  private static final boolean useLegacyResources = androidDevice.legacyResourceMode;
+
   public static Context systemContext;
 
   /**
@@ -25,16 +31,14 @@ public class RuntimeEnvironment {
 
   private volatile static Thread mainThread = Thread.currentThread();
   private static Object activityThread;
-  private static int apiLevel;
   private static Scheduler masterScheduler;
   private static ResourceTable systemResourceTable;
   private static ResourceTable appResourceTable;
   private static ResourceTable compileTimeResourceTable;
   private static TempDirectory tempDirectory = new TempDirectory("no-test-yet");
-  private static String androidFrameworkJar;
+  private static Path androidFrameworkJar;
   public static Path compileTimeSystemResourcesFile;
 
-  private static boolean useLegacyResources;
 
   /**
    * Tests if the given thread is currently set as the main thread.
@@ -208,11 +212,11 @@ public class RuntimeEnvironment {
     return tempDirectory;
   }
 
-  public static void setAndroidFrameworkJarPath(String localArtifactPath) {
+  public static void setAndroidFrameworkJarPath(Path localArtifactPath) {
     RuntimeEnvironment.androidFrameworkJar = localArtifactPath;
   }
 
-  public static String getAndroidFrameworkJarPath() {
+  public static Path getAndroidFrameworkJarPath() {
     return RuntimeEnvironment.androidFrameworkJar;
   }
 
@@ -226,13 +230,4 @@ public class RuntimeEnvironment {
     return useLegacyResources;
   }
 
-  /**
-   * Internal only.
-   *
-   * @deprecated Do not use.
-   */
-  @Deprecated
-  public static void setUseLegacyResources(boolean useLegacyResources) {
-    RuntimeEnvironment.useLegacyResources = useLegacyResources;
-  }
 }

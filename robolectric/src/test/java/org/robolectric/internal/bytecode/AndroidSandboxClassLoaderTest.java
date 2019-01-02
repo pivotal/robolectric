@@ -9,9 +9,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.robolectric.RobolectricTestRunner;
+import org.robolectric.ApkLoader;
 import org.robolectric.android.AndroidInterceptors;
 import org.robolectric.internal.AndroidConfigurer;
+import org.robolectric.internal.DefaultSandboxFactory;
+import org.robolectric.internal.DefaultSdkProvider;
+import org.robolectric.internal.dependency.DependencyResolver;
+import org.robolectric.util.inject.Injector;
 
 @RunWith(JUnit4.class)
 public class AndroidSandboxClassLoaderTest {
@@ -20,8 +24,12 @@ public class AndroidSandboxClassLoaderTest {
 
   @Before
   public void setUp() throws Exception {
+    DependencyResolver dependencyResolver = dependency -> null;
+    DefaultSdkProvider sdkProvider = new DefaultSdkProvider();
+    ApkLoader apkLoader = new ApkLoader(dependencyResolver, sdkProvider);
     classLoader =
-        RobolectricTestRunner.SANDBOX_FACTORY.createClassLoader(configureBuilder().build());
+        new DefaultSandboxFactory(new Injector(), dependencyResolver, sdkProvider, apkLoader)
+            .createClassLoader(configureBuilder().build());
   }
 
   @Test

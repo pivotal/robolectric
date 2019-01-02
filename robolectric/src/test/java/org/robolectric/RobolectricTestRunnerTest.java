@@ -1,12 +1,12 @@
 package org.robolectric;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toSet;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.robolectric.util.ReflectionHelpers.callConstructor;
 
 import android.app.Application;
 import android.os.Build;
@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import javax.annotation.Nonnull;
+import javax.inject.Inject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
@@ -38,16 +39,20 @@ import org.junit.runners.model.InitializationError;
 import org.robolectric.RobolectricTestRunner.ResourcesMode;
 import org.robolectric.RobolectricTestRunner.RobolectricFrameworkMethod;
 import org.robolectric.RobolectricTestRunnerTest.TestWithBrokenAppCreate.MyTestApplication;
-import org.robolectric.android.internal.ParallelUniverse;
 import org.robolectric.annotation.Config;
-import org.robolectric.internal.ParallelUniverseInterface;
+import org.robolectric.internal.AndroidSandbox;
+import org.robolectric.internal.Bridge;
+import org.robolectric.internal.DefaultSandboxFactory;
+import org.robolectric.internal.DefaultSdkProvider;
+import org.robolectric.internal.SandboxFactory;
 import org.robolectric.internal.SdkConfig;
-import org.robolectric.internal.SdkEnvironment;
+import org.robolectric.internal.dependency.DependencyResolver;
 import org.robolectric.manifest.AndroidManifest;
-import org.robolectric.util.PerfStatsCollector.Metric;
-import org.robolectric.util.PerfStatsReporter;
+import org.robolectric.pluginapi.perf.Metric;
+import org.robolectric.pluginapi.perf.PerfStatsReporter;
 import org.robolectric.util.TempDirectory;
 import org.robolectric.util.TestUtil;
+import org.robolectric.util.inject.Injector;
 
 @RunWith(JUnit4.class)
 public class RobolectricTestRunnerTest {
@@ -56,6 +61,7 @@ public class RobolectricTestRunnerTest {
   private List<String> events;
   private String priorEnabledSdks;
   private String priorAlwaysInclude;
+  private SdkProvider sdkProvider;
 
   @Before
   public void setUp() throws Exception {
@@ -78,6 +84,8 @@ public class RobolectricTestRunnerTest {
 
     priorAlwaysInclude = System.getProperty("robolectric.alwaysIncludeVariantMarkersInTestName");
     System.clearProperty("robolectric.alwaysIncludeVariantMarkersInTestName");
+
+    sdkProvider = new DefaultSdkProvider();
   }
 
   @After
@@ -89,7 +97,7 @@ public class RobolectricTestRunnerTest {
 
   @Test
   public void ignoredTestCanSpecifyUnsupportedSdkWithoutExploding() throws Exception {
-    RobolectricTestRunner runner = new MyRobolectricTestRunner(TestWithOldSdk.class);
+    RobolectricTestRunner runner = new SingleSdkRobolectricTestRunner(TestWithOldSdk.class);
     runner.run(notifier);
     assertThat(events).containsExactly(
         "failure: Robolectric does not support API level 11.",
@@ -99,15 +107,12 @@ public class RobolectricTestRunnerTest {
 
   @Test
   public void failureInResetterDoesntBreakAllTests() throws Exception {
+    Injector injector = SingleSdkRobolectricTestRunner.defaultInjector()
+        .register(AndroidSandbox.class, MyAndroidSandbox.class);
+
     RobolectricTestRunner runner =
-        new MyRobolectricTestRunner(TestWithTwoMethods.class) {
-          @Override
-          ParallelUniverseInterface getHooksInterface(SdkEnvironment sdkEnvironment) {
-            Class<? extends ParallelUniverseInterface> clazz =
-                sdkEnvironment.bootstrappedClass(MyParallelUniverseWithFailingSetUp.class);
-            return callConstructor(clazz);
-          }
-        };
+        new SingleSdkRobolectricTestRunner(TestWithTwoMethods.class, injector);
+
     runner.run(notifier);
     assertThat(events).containsExactly(
         "failure: fake error in setUpApplicationState",
@@ -117,9 +122,8 @@ public class RobolectricTestRunnerTest {
 
   @Test
   public void failureInAppOnCreateDoesntBreakAllTests() throws Exception {
-    RobolectricTestRunner runner = new MyRobolectricTestRunner(TestWithBrokenAppCreate.class);
+    RobolectricTestRunner runner = new SingleSdkRobolectricTestRunner(TestWithBrokenAppCreate.class);
     runner.run(notifier);
-    System.out.println("events = " + events);
     assertThat(events)
         .containsExactly(
             "failure: fake error in application.onCreate",
@@ -133,7 +137,7 @@ public class RobolectricTestRunnerTest {
         new RobolectricFrameworkMethod(
             method,
             mock(AndroidManifest.class),
-            new SdkConfig(16),
+            sdkProvider.getSdkConfig(16),
             mock(Config.class),
             ResourcesMode.legacy,
             ResourcesMode.legacy,
@@ -142,7 +146,7 @@ public class RobolectricTestRunnerTest {
         new RobolectricFrameworkMethod(
             method,
             mock(AndroidManifest.class),
-            new SdkConfig(17),
+            sdkProvider.getSdkConfig(17),
             mock(Config.class),
             ResourcesMode.legacy,
             ResourcesMode.legacy,
@@ -151,7 +155,7 @@ public class RobolectricTestRunnerTest {
         new RobolectricFrameworkMethod(
             method,
             mock(AndroidManifest.class),
-            new SdkConfig(16),
+            sdkProvider.getSdkConfig(16),
             mock(Config.class),
             ResourcesMode.legacy,
             ResourcesMode.legacy,
@@ -160,7 +164,7 @@ public class RobolectricTestRunnerTest {
         new RobolectricFrameworkMethod(
             method,
             mock(AndroidManifest.class),
-            new SdkConfig(16),
+            sdkProvider.getSdkConfig(16),
             mock(Config.class),
             ResourcesMode.binary,
             ResourcesMode.legacy,
@@ -178,7 +182,7 @@ public class RobolectricTestRunnerTest {
     List<Metric> metrics = new ArrayList<>();
     PerfStatsReporter reporter = (metadata, metrics1) -> metrics.addAll(metrics1);
 
-    RobolectricTestRunner runner = new MyRobolectricTestRunner(TestWithTwoMethods.class) {
+    RobolectricTestRunner runner = new SingleSdkRobolectricTestRunner(TestWithTwoMethods.class) {
       @Nonnull
       @Override
       protected Iterable<PerfStatsReporter> getPerfStatsReporters() {
@@ -194,21 +198,12 @@ public class RobolectricTestRunnerTest {
 
   @Test
   public void shouldResetThreadInterrupted() throws Exception {
-    RobolectricTestRunner runner = new MyRobolectricTestRunner(TestWithInterrupt.class);
+    RobolectricTestRunner runner = new SingleSdkRobolectricTestRunner(TestWithInterrupt.class);
     runner.run(notifier);
     assertThat(events).containsExactly("failure: failed for the right reason");
   }
 
   /////////////////////////////
-
-  public static class MyParallelUniverseWithFailingSetUp extends ParallelUniverse {
-
-    @Override
-    public void setUpApplicationState(ApkLoader apkLoader, Method method,
-        Config config, AndroidManifest appManifest, SdkEnvironment environment) {
-      throw new RuntimeException("fake error in setUpApplicationState");
-    }
-  }
 
   @Ignore
   public static class TestWithOldSdk {
@@ -307,20 +302,45 @@ public class RobolectricTestRunnerTest {
     }
   }
 
-  private static class MyRobolectricTestRunner extends RobolectricTestRunner {
-    public MyRobolectricTestRunner(Class<?> testClass) throws InitializationError {
-      super(testClass);
+  private static class SingleSdkRobolectricTestRunner extends RobolectricTestRunner {
+
+    private static final DefaultSdkPicker DEFAULT_SDK_PICKER =
+            new DefaultSdkPicker(new DefaultSdkProvider(), singletonList(DefaultSdkProvider.MAX_SDK_CONFIG), null);
+    private static final Injector INJECTOR = defaultInjector();
+
+    protected static Injector defaultInjector() {
+      return RobolectricTestRunner.defaultInjector()
+          .register(SdkPicker.class, DEFAULT_SDK_PICKER);
     }
 
-    @Nonnull
-    @Override
-    protected SdkPicker createSdkPicker() {
-      return new SdkPicker(asList(new SdkConfig(SdkConfig.MAX_SDK_VERSION)), null);
+    SingleSdkRobolectricTestRunner(Class<?> testClass) throws InitializationError {
+      super(testClass, INJECTOR);
+    }
+
+    public SingleSdkRobolectricTestRunner(Class<?> testClass, Injector injector) throws InitializationError {
+      super(testClass, injector);
     }
 
     @Override
     ResourcesMode getResourcesMode() {
       return ResourcesMode.legacy;
+    }
+  }
+
+  private static class MyAndroidSandbox extends AndroidSandbox {
+
+    @Inject
+    public MyAndroidSandbox(SdkConfig sdkConfig, boolean useLegacyResources,
+        ClassLoader robolectricClassLoader, ApkLoader apkLoader) {
+      super(sdkConfig, useLegacyResources, robolectricClassLoader, apkLoader);
+    }
+
+    @Override
+    protected Bridge getBridge() {
+      Bridge mockBridge = mock(Bridge.class);
+      doThrow(new RuntimeException("fake error in setUpApplicationState"))
+          .when(mockBridge).setUpApplicationState(any(), any(), any(), any());
+      return mockBridge;
     }
   }
 }

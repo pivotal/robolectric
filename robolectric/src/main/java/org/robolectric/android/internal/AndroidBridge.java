@@ -32,17 +32,15 @@ import com.google.common.annotations.VisibleForTesting;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.Security;
 import java.util.Locale;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.robolectric.ApkLoader;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.Bootstrap;
 import org.robolectric.android.fakes.RoboMonitoringInstrumentation;
 import org.robolectric.annotation.Config;
-import org.robolectric.internal.ParallelUniverseInterface;
+import org.robolectric.internal.AndroidSandbox;
+import org.robolectric.internal.Bridge;
 import org.robolectric.internal.SdkConfig;
-import org.robolectric.internal.SdkEnvironment;
 import org.robolectric.manifest.AndroidManifest;
 import org.robolectric.manifest.BroadcastReceiverData;
 import org.robolectric.manifest.RoboNotFoundException;
@@ -61,52 +59,36 @@ import org.robolectric.shadows.ShadowAssetManager;
 import org.robolectric.shadows.ShadowContextImpl._ContextImpl_;
 import org.robolectric.shadows.ShadowInstrumentation._Instrumentation_;
 import org.robolectric.shadows.ShadowLoadedApk._LoadedApk_;
-import org.robolectric.shadows.ShadowLog;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowPackageParser;
 import org.robolectric.shadows.ShadowPackageParser._Package_;
 import org.robolectric.util.PerfStatsCollector;
 import org.robolectric.util.ReflectionHelpers;
-import org.robolectric.util.Scheduler;
-import org.robolectric.util.TempDirectory;
 
 @SuppressLint("NewApi")
-public class ParallelUniverse implements ParallelUniverseInterface {
+public class AndroidBridge implements Bridge {
 
-  private boolean loggingInitialized = false;
-  private SdkConfig sdkConfig;
+  private final SdkConfig sdkConfig;
+  private final boolean legacyResourceMode;
+  private final ApkLoader apkLoader;
 
-  @Override
-  public void setSdkConfig(SdkConfig sdkConfig) {
+  private final AndroidDevice androidDevice;
+
+  public AndroidBridge(SdkConfig sdkConfig, boolean legacyResourceMode, ApkLoader apkLoader) {
     this.sdkConfig = sdkConfig;
-    ReflectionHelpers.setStaticField(RuntimeEnvironment.class, "apiLevel", sdkConfig.getApiLevel());
+    this.legacyResourceMode = legacyResourceMode;
+    this.apkLoader = apkLoader;
+
+    androidDevice = new AndroidDevice(sdkConfig.getApiLevel(), legacyResourceMode);
+    AndroidDevice.register(androidDevice);
   }
 
   @Override
-  public void setResourcesMode(boolean legacyResources) {
-    RuntimeEnvironment.setUseLegacyResources(legacyResources);
-  }
-
-  @Override
-  public void setUpApplicationState(ApkLoader apkLoader, Method method, Config config,
-      AndroidManifest appManifest, SdkEnvironment sdkEnvironment) {
-    ReflectionHelpers.setStaticField(RuntimeEnvironment.class, "apiLevel", sdkConfig.getApiLevel());
-
-    RuntimeEnvironment.application = null;
-    RuntimeEnvironment.setActivityThread(null);
-    RuntimeEnvironment.setTempDirectory(new TempDirectory(createTestDataDirRootPath(method)));
-    RuntimeEnvironment.setMasterScheduler(new Scheduler());
-    RuntimeEnvironment.setMainThread(Thread.currentThread());
-
-    if (!loggingInitialized) {
-      ShadowLog.setupLogging();
-      loggingInitialized = true;
-    }
-
-    if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-      Security.insertProviderAt(new BouncyCastleProvider(), 1);
-    }
+  public void setUpApplicationState(Method method, Config config,
+      AndroidManifest appManifest, AndroidSandbox androidSandbox) {
+    String sessionName = createTestDataDirRootPath(method);
+    androidDevice.reset(sessionName);
 
     Configuration configuration = new Configuration();
     DisplayMetrics displayMetrics = new DisplayMetrics();
@@ -129,7 +111,7 @@ public class ParallelUniverse implements ParallelUniverseInterface {
     RuntimeEnvironment.setActivityThread(activityThread);
     final _ActivityThread_ _activityThread_ = reflector(_ActivityThread_.class, activityThread);
 
-    Package parsedPackage = loadAppPackage(apkLoader, config, appManifest, sdkEnvironment);
+    Package parsedPackage = loadAppPackage(apkLoader, config, appManifest, androidSandbox);
 
     ApplicationInfo applicationInfo = parsedPackage.applicationInfo;
 
@@ -221,19 +203,19 @@ public class ParallelUniverse implements ParallelUniverseInterface {
   }
 
   private Package loadAppPackage(ApkLoader apkLoader, Config config, AndroidManifest appManifest,
-      SdkEnvironment sdkEnvironment) {
+      AndroidSandbox androidSandbox) {
     return PerfStatsCollector.getInstance()
         .measure(
             "parse package",
-            () -> loadAppPackage_measured(apkLoader, config, appManifest, sdkEnvironment));
+            () -> loadAppPackage_measured(apkLoader, config, appManifest, androidSandbox));
   }
 
   private Package loadAppPackage_measured(ApkLoader apkLoader, Config config,
-      AndroidManifest appManifest, SdkEnvironment sdkEnvironment) {
+      AndroidManifest appManifest, AndroidSandbox androidSandbox) {
 
     Package parsedPackage;
     if (RuntimeEnvironment.useLegacyResources()) {
-      injectResourceStuffForLegacy(apkLoader, appManifest, sdkEnvironment);
+      injectResourceStuffForLegacy(apkLoader, appManifest, androidSandbox);
 
       if (appManifest.getAndroidManifestFile() != null
           && Files.exists(appManifest.getAndroidManifestFile())) {
@@ -252,10 +234,10 @@ public class ParallelUniverse implements ParallelUniverseInterface {
       }
     } else {
       RuntimeEnvironment.compileTimeSystemResourcesFile =
-          apkLoader.getCompileTimeSystemResourcesFile(sdkEnvironment);
+          apkLoader.getCompileTimeSystemResourcesFile();
 
       RuntimeEnvironment.setAndroidFrameworkJarPath(
-          apkLoader.getArtifactUrl(sdkConfig.getAndroidSdkDependency()).getFile());
+          apkLoader.getRuntimeSystemResourcesFile(sdkConfig));
 
       Path packageFile = appManifest.getApkFile();
       parsedPackage = ShadowPackageParser.callParsePackage(packageFile);
@@ -264,8 +246,8 @@ public class ParallelUniverse implements ParallelUniverseInterface {
   }
 
   private void injectResourceStuffForLegacy(ApkLoader apkLoader, AndroidManifest appManifest,
-      SdkEnvironment sdkEnvironment) {
-    PackageResourceTable systemResourceTable = apkLoader.getSystemResourceTable(sdkEnvironment);
+      AndroidSandbox androidSandbox) {
+    PackageResourceTable systemResourceTable = apkLoader.getSystemResourceTable(androidSandbox);
     PackageResourceTable appResourceTable = apkLoader.getAppResourceTable(appManifest);
     RoutingResourceTable combinedAppResourceTable = new RoutingResourceTable(appResourceTable,
         systemResourceTable);
@@ -336,7 +318,8 @@ public class ParallelUniverse implements ParallelUniverseInterface {
   static String getTestApplicationName(String applicationName) {
     int lastDot = applicationName.lastIndexOf('.');
     if (lastDot > -1) {
-      return applicationName.substring(0, lastDot) + ".Test" + applicationName.substring(lastDot + 1);
+      return applicationName.substring(0, lastDot) + ".Test" + applicationName
+          .substring(lastDot + 1);
     } else {
       return "Test" + applicationName;
     }
@@ -366,17 +349,8 @@ public class ParallelUniverse implements ParallelUniverseInterface {
    * Create a file system safe directory path name for the current test.
    */
   private String createTestDataDirRootPath(Method method) {
-    return method.getClass().getSimpleName() + "_" + method.getName().replaceAll("[^a-zA-Z0-9.-]", "_");
-  }
-
-  @Override
-  public Thread getMainThread() {
-    return RuntimeEnvironment.getMainThread();
-  }
-
-  @Override
-  public void setMainThread(Thread newMainThread) {
-    RuntimeEnvironment.setMainThread(newMainThread);
+    return method.getClass().getSimpleName() + "_" + method.getName()
+        .replaceAll("[^a-zA-Z0-9.-]", "_");
   }
 
   @Override
@@ -460,4 +434,22 @@ public class ParallelUniverse implements ParallelUniverseInterface {
     return receiverClassName;
   }
 
+  @VisibleForTesting
+  boolean isLegacyResourceMode() {
+    return legacyResourceMode;
+  }
+
+  public interface BridgeFactory {
+
+    Bridge build(SdkConfig sdkConfig, boolean legacyResourceMode, ApkLoader apkLoader);
+  }
+
+  public static class TheFactory implements BridgeFactory {
+
+    @Override
+    public AndroidBridge build(SdkConfig sdkConfig, boolean legacyResourceMode,
+        ApkLoader apkLoader) {
+      return new AndroidBridge(sdkConfig, legacyResourceMode, apkLoader);
+    }
+  }
 }
