@@ -23,6 +23,7 @@ import javax.annotation.Nullable;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowActivity;
+import org.robolectric.shadows.ShadowBaseLooper;
 import org.robolectric.shadows.ShadowContextThemeWrapper;
 import org.robolectric.shadows.ShadowPackageManager;
 import org.robolectric.shadows.ShadowViewRootImpl;
@@ -165,11 +166,17 @@ public class ActivityController<T extends Activity>
           ReflectionHelpers.callInstanceMethod(component, "makeVisible");
         });
 
+    if (ShadowBaseLooper.useRealisticLooper()) {
+      shadowMainLooper.idle();
+    }
     ViewRootImpl root = getViewRoot();
     // root can be null if activity does not have content attached, or if looper is paused.
     // this is unusual but leave the check here for legacy compatibility
     if (root != null) {
       callDispatchResized(root);
+      if (ShadowBaseLooper.useRealisticLooper()) {
+        shadowMainLooper.idle();
+      }
     }
     return this;
   }
@@ -195,6 +202,9 @@ public class ActivityController<T extends Activity>
     ReflectionHelpers.callInstanceMethod(root, "windowFocusChanged",
         from(boolean.class, hasFocus), /* hasFocus */
         from(boolean.class, false) /* inTouchMode */);
+    if (ShadowBaseLooper.useRealisticLooper()) {
+      shadowMainLooper.idle();
+    }
     return this;
   }
 

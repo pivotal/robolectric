@@ -51,6 +51,9 @@ import org.robolectric.pluginapi.config.ConfigurationStrategy.Configuration;
 import org.robolectric.pluginapi.config.GlobalConfigProvider;
 import org.robolectric.plugins.HierarchicalConfigurationStrategy.ConfigurationImpl;
 import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowBaseLooper;
+import org.robolectric.shadows.ShadowRealisticLooper;
+
 import org.robolectric.util.PerfStatsCollector;
 import org.robolectric.util.ReflectionHelpers;
 import org.robolectric.util.Scheduler;
@@ -554,20 +557,30 @@ public class RobolectricTestRunner extends SandboxTestRunner {
       try {
         baseStatement.evaluate();
       } catch (Throwable t) {
-        // need to get ShadowApplication from sandbox class loader, not the current classloader
-        Class clazz =
-            ReflectionHelpers.loadClass(robolectricClassLoader, ShadowApplication.class.getName());
-        Object instance = ReflectionHelpers.callStaticMethod(clazz, "getInstance");
-        Scheduler scheduler =
-            ReflectionHelpers.callInstanceMethod(instance, "getForegroundThreadScheduler");
-        if (scheduler.areAnyRunnable()) {
-          throw new Exception(
-              "Main thread has queued unexecuted runnables. "
-                  + "This might be the cause of the test failure. "
-                  + "You might need a ShadowLooper#idle call.",
-              t);
+        if (hasUnexecutedRunnables()) {
+          throw new Exception("Main looper has queued unexecuted runnables. " +
+              "This might be the cause of the test failure. " +
+              "You might need a shadowMainLooper().idle() call.",
+              t );
         }
         throw t;
+      }
+    }
+
+    private boolean hasUnexecutedRunnables() {
+      // use reflection to access state, because these objects need to get loaded from sandbox
+      // class loader, not the current classloader
+      // DO NOT SUBMIT TODO: read this from properties instead
+      boolean useRealisticLooper = ShadowBaseLooper.USE_REALISTIC_LOOPER;
+      if (useRealisticLooper) {
+        Boolean isIdle = ReflectionHelpers.callStaticMethod(robolectricClassLoader,
+            ShadowRealisticLooper.class.getName(), "isMainLooperIdle");
+        return !isIdle.booleanValue();
+      } else {
+        Object shadowAppInstance = ReflectionHelpers.callStaticMethod(robolectricClassLoader, ShadowApplication.class.getName(), "getInstance");
+        Scheduler scheduler = ReflectionHelpers.callInstanceMethod(shadowAppInstance,
+            "getForegroundThreadScheduler");
+        return scheduler.areAnyRunnable();
       }
     }
   }

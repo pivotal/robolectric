@@ -2,6 +2,7 @@ package org.robolectric.android.internal;
 
 import static android.os.Build.VERSION_CODES.O;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
@@ -35,7 +36,9 @@ import org.robolectric.plugins.HierarchicalConfigurationStrategy.ConfigurationIm
 import org.robolectric.res.ResourceTable;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowBaseLooper;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowRealisticLooper;
 
 @RunWith(BootstrapDeferringRobolectricTestRunner.class)
 public class AndroidEnvironmentTest {
@@ -44,6 +47,8 @@ public class AndroidEnvironmentTest {
 
   @Test
   public void setUpApplicationState_configuresGlobalScheduler() {
+    assume().that(ShadowBaseLooper.useRealisticLooper()).isFalse();
+
     bootstrapWrapper.callSetUpApplicationState();
 
     assertThat(RuntimeEnvironment.getMasterScheduler())
@@ -54,6 +59,8 @@ public class AndroidEnvironmentTest {
 
   @Test
   public void setUpApplicationState_setsBackgroundScheduler_toBeSameAsForeground_whenAdvancedScheduling() {
+    assume().that(ShadowBaseLooper.useRealisticLooper()).isFalse();
+
     RoboSettings.setUseGlobalScheduler(true);
     try {
       bootstrapWrapper.callSetUpApplicationState();
@@ -70,6 +77,8 @@ public class AndroidEnvironmentTest {
 
   @Test
   public void setUpApplicationState_setsBackgroundScheduler_toBeDifferentToForeground_byDefault() {
+    assume().that(ShadowBaseLooper.useRealisticLooper()).isFalse();
+
     bootstrapWrapper.callSetUpApplicationState();
     final ShadowApplication shadowApplication =
         Shadow.extract(ApplicationProvider.getApplicationContext());
@@ -79,6 +88,7 @@ public class AndroidEnvironmentTest {
 
   @Test
   public void setUpApplicationState_setsMainThread() {
+    assume().that(ShadowRealisticLooper.useRealisticLooper()).isFalse();
     RuntimeEnvironment.setMainThread(new Thread());
     assertThat(RuntimeEnvironment.isMainThread()).isFalse();
     bootstrapWrapper.callSetUpApplicationState();
@@ -87,6 +97,8 @@ public class AndroidEnvironmentTest {
 
   @Test
   public void setUpApplicationState_setsMainThread_onAnotherThread() throws InterruptedException {
+    assume().that(ShadowRealisticLooper.useRealisticLooper()).isFalse();
+
     final AtomicBoolean res = new AtomicBoolean();
     Thread t =
         new Thread(() -> {
