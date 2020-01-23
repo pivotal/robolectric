@@ -97,7 +97,7 @@ public class ShadowAppOpsManager {
   @HiddenApi
   @SystemApi
   @RequiresPermission(android.Manifest.permission.MANAGE_APP_OPS_MODES)
-  public void setMode(String op, int uid, String packageName, int mode) {
+  protected void setMode(String op, int uid, String packageName, int mode) {
     setMode(AppOpsManager.strOpToOp(op), uid, packageName, mode);
   }
 
@@ -111,7 +111,7 @@ public class ShadowAppOpsManager {
   @Implementation(minSdk = KITKAT)
   @HiddenApi
   @RequiresPermission(android.Manifest.permission.MANAGE_APP_OPS_MODES)
-  public void setMode(int op, int uid, String packageName, int mode) {
+  protected void setMode(int op, int uid, String packageName, int mode) {
     Integer oldMode = appModeMap.put(getOpMapKey(uid, packageName, op), mode);
     OnOpChangedListener listener = appOpListeners.get(getListenerKey(op, packageName));
     if (listener != null && !Objects.equals(oldMode, mode)) {
@@ -121,7 +121,7 @@ public class ShadowAppOpsManager {
   }
 
   @Implementation(minSdk = Q)
-  public int unsafeCheckOpNoThrow(String op, int uid, String packageName) {
+  protected int unsafeCheckOpNoThrow(String op, int uid, String packageName) {
     return checkOpNoThrow(AppOpsManager.strOpToOp(op), uid, packageName);
   }
 
@@ -139,7 +139,7 @@ public class ShadowAppOpsManager {
    */
   @Implementation(minSdk = KITKAT)
   @HiddenApi
-  public int checkOpNoThrow(int op, int uid, String packageName) {
+  protected int checkOpNoThrow(int op, int uid, String packageName) {
     Integer mode = appModeMap.get(getOpMapKey(uid, packageName, op));
     if (mode == null) {
       return AppOpsManager.MODE_ALLOWED;
@@ -148,7 +148,7 @@ public class ShadowAppOpsManager {
   }
 
   @Implementation(minSdk = KITKAT)
-  public int noteOp(int op, int uid, String packageName) {
+  protected int noteOp(int op, int uid, String packageName) {
     mStoredOps.put(getInternalKey(uid, packageName), op);
 
     // Permission check not currently implemented in this shadow.
@@ -170,7 +170,7 @@ public class ShadowAppOpsManager {
 
   @Implementation(minSdk = KITKAT)
   @HiddenApi
-  public List<PackageOps> getOpsForPackage(int uid, String packageName, int[] ops) {
+  protected List<PackageOps> getOpsForPackage(int uid, String packageName, int[] ops) {
     Set<Integer> opFilter = new HashSet<>();
     if (ops != null) {
       for (int op : ops) {
@@ -211,7 +211,7 @@ public class ShadowAppOpsManager {
    */
   @Implementation(minSdk = LOLLIPOP)
   @HiddenApi
-  public void setRestriction(
+  protected void setRestriction(
       int code, @AttributeUsage int usage, int mode, String[] exceptionPackages) {
     audioRestrictions.put(
         getAudioRestrictionKey(code, usage), new ModeAndException(mode, exceptionPackages));
