@@ -24,7 +24,7 @@ import org.robolectric.internal.bytecode.MethodSignature;
 import org.robolectric.shadows.ShadowSystem;
 import org.robolectric.shadows.ShadowWindow;
 import org.robolectric.util.Function;
-import org.robolectric.util.Util;
+import org.robolectric.util.JavaVersion;
 
 public class AndroidInterceptors {
   private static final MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -41,7 +41,7 @@ public class AndroidInterceptors {
                 new SystemLogInterceptor(),
                 new NoOpInterceptor()));
 
-    if (Util.getJavaVersion() >= 9) {
+    if (JavaVersion.SYSTEM >= 9) {
       interceptors.add(new CleanerInterceptor());
     }
 
