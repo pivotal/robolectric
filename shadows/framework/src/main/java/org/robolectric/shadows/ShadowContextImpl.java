@@ -7,6 +7,7 @@ import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.N;
 import static android.os.Build.VERSION_CODES.O;
+import static android.os.Build.VERSION_CODES.R;
 import static org.robolectric.shadow.api.Shadow.directlyOn;
 
 import android.annotation.Nullable;
@@ -30,6 +31,7 @@ import android.os.Environment;
 import android.os.FileUtils;
 import android.os.Handler;
 import android.os.UserHandle;
+import android.view.Display;
 import com.google.common.base.Strings;
 import java.io.File;
 import java.nio.file.Paths;
@@ -457,6 +459,11 @@ public class ShadowContextImpl {
         "getSharedPreferences",
         ClassParameter.from(String.class, name),
         ClassParameter.from(int.class, mode));
+  }
+
+  @Implementation(minSdk = R)
+  protected Display getDisplay() {
+    return ShadowDisplay.getDefaultDisplay();
   }
 
   /** Accessor interface for {@link android.app.ContextImpl}'s internals. */
