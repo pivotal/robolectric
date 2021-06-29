@@ -1,5 +1,7 @@
 package org.robolectric.shadows;
 
+import static org.robolectric.Shadows.shadowOf;
+
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -15,12 +17,15 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.annotation.Resetter;
-import org.robolectric.util.ReflectionHelpers;
+import org.robolectric.shadow.api.Shadow;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
 
+/** Shadow implementation of {@link NfcAdapter}. */
 @Implements(NfcAdapter.class)
 public class ShadowNfcAdapter {
   @RealObject NfcAdapter nfcAdapter;
   private static boolean hardwareExists = true;
+  private static boolean hasNfcFeature = true;
   private boolean enabled;
   private Activity enabledActivity;
   private PendingIntent intent;
@@ -38,7 +43,13 @@ public class ShadowNfcAdapter {
     if (!hardwareExists) {
       return null;
     }
-    return ReflectionHelpers.callConstructor(NfcAdapter.class);
+    if (hasNfcFeature) {
+      // By default set the feature during this call in order to not break existing tests
+      shadowOf(context.getPackageManager())
+          .setSystemFeature(PackageManager.FEATURE_NFC, /* supported= */ true);
+    }
+    return Shadow.directlyOn(
+        NfcAdapter.class, "getNfcAdapter", ClassParameter.from(Context.class, context));
   }
 
   @Implementation
@@ -141,12 +152,32 @@ public class ShadowNfcAdapter {
     return enabled;
   }
 
+  @Implementation
+  protected boolean enable() {
+    enabled = true;
+    return true;
+  }
+
+  @Implementation
+  protected boolean disable() {
+    enabled = false;
+    return true;
+  }
+
   /**
-   * Modifies behavior of {@link #getNfcAdapter(Context)} to return {@code null}, to simulate
+   * Modifies the behavior of {@link #getNfcAdapter(Context)} to return {@code null}, to simulate
    * absence of NFC hardware.
    */
   public static void setNfcHardwareExists(boolean hardwareExists) {
     ShadowNfcAdapter.hardwareExists = hardwareExists;
+  }
+
+  /**
+   * Modifies the behavior of {@link #getNfcAdapter(Context)} to either set or not set system
+   * feature {@code PackageManager.FEATURE_NFC} before retrieving the {@code NfcAdapter}.
+   */
+  public static void setHasNfcFeature(boolean hasNfcFeature) {
+    ShadowNfcAdapter.hasNfcFeature = hasNfcFeature;
   }
 
   public void setEnabled(boolean enabled) {
